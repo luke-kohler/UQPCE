@@ -6,7 +6,7 @@ from uqpce.mdao import interface
 
 from helpers import initialize, plot_objective, plot_coefficients, get_values
 
-from organize import Objective
+#from organize import Objective
 from organize import configure_subsystems
 
 
@@ -216,7 +216,7 @@ def main():
 
     uncertain_prob.model.add_design_var('S', lower=100.0, upper=180.0, ref=124.6)
     uncertain_prob.model.add_design_var('AR', lower=7.0, upper=50.0, ref=9.45)
-    uncertain_prob.model.add_design_var('V_cruise', lower=200, upper=260, ref=1)
+    uncertain_prob.model.add_design_var('V_cruise', lower=200, upper=260, ref=100)
     uncertain_prob.model.add_design_var('SFC_tech', lower=-1, upper=1, ref=1)
 
     #---------------------------------------------------------------------------
@@ -224,8 +224,8 @@ def main():
     #---------------------------------------------------------------------------
 
     uncertain_prob.model.add_constraint('m_fuel:mean', lower=1000.0, upper=50000.0, ref=16000.0)
-    uncertain_prob.model.add_constraint('CL:ci_lower',upper=0.4953, ref0=1, ref=2)
-    uncertain_prob.model.add_constraint('CL:ci_upper',upper=0.5690, ref0=1, ref=2)
+    uncertain_prob.model.add_constraint('CL:ci_lower',lower=0.4953)
+    uncertain_prob.model.add_constraint('CL:ci_upper',upper=0.5690)
 
     #---------------------------------------------------------------------------
     #                   Add Probability-Based Objective
@@ -245,7 +245,7 @@ def main():
 
     uncertain_prob.setup()
     
-    uncertain_prob.model.set_val('lambda',3)
+    uncertain_prob.model.set_val('lambda',100.0)
     
     initialize(uncertain_prob, params=optimal)
     
@@ -259,7 +259,7 @@ def main():
     #               Optimize DOC under Uncertainty              
     #---------------------------------------------------------------------------
 
-    initialize(uncertain_prob)
+    #initialize(uncertain_prob)
 
     uncertain_prob.run_driver()
 
