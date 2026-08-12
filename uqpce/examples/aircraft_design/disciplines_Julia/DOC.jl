@@ -10,7 +10,11 @@ function DOC_ad(inputs, params)
 end
 
 function get_DOC_ad(vector_size::Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
+    #ad_backend = ADTypes.AutoForwardDiff()
+
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
 
     inputs = ComponentVector(
         SFC_tech=1.0,
@@ -28,7 +32,7 @@ function get_DOC_ad(vector_size::Integer)
 
     units_dict = Dict(:V_cruise=>"m/s", :R=>"m", :m_fuel=>"kg", :Cf_base=>"USD/kg", :C_time=>"USD/s", :C_eng_ref=>"USD", :DOC=>"USD")
 
-    comp = OpenMDAOCore.DenseADExplicitComp(ad_backend, DOC_ad, inputs; units_dict=units_dict)
+    comp = OpenMDAOCore.SparseADExplicitComp(ad_backend, DOC_ad, inputs; units_dict=units_dict)
     
     return comp
 end

@@ -83,8 +83,10 @@ function propulsion_ad(inputs, params)
 end
 
 function get_prop_ad(vector_size::Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
-
+    #ad_backend = ADTypes.AutoForwardDiff()
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
     inputs = ComponentVector(
         SFC_tech=1.0,
         V_cruise=1.0,
@@ -98,7 +100,7 @@ function get_prop_ad(vector_size::Integer)
 
     units_dict = Dict(:V_cruise=>"m/s", :SFC_ref=>"1/s", :V_ref=>"m/s", :SFC=>"1/s")
 
-    comp = OpenMDAOCore.DenseADExplicitComp(ad_backend, propulsion_ad, inputs; units_dict=units_dict)
+    comp = OpenMDAOCore.SparseADExplicitComp(ad_backend, propulsion_ad, inputs; units_dict=units_dict)
     
     return comp
 end

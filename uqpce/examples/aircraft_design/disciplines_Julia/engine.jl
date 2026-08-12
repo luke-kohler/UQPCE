@@ -10,7 +10,11 @@ function engine_ad(inputs, params)
 end
 
 function get_engine_ad(vector_size::Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
+    #ad_backend = ADTypes.AutoForwardDiff()
+
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
 
     inputs = ComponentVector(
         SFC_tech=1.0,
@@ -21,7 +25,7 @@ function get_engine_ad(vector_size::Integer)
 
     units_dict = Dict(:m_eng_ref=>"kg", :m_engine=>"kg")
 
-    comp = OpenMDAOCore.DenseADExplicitComp(ad_backend, engine_ad, inputs; units_dict=units_dict)
+    comp = OpenMDAOCore.SparseADExplicitComp(ad_backend, engine_ad, inputs; units_dict=units_dict)
     
     return comp
 end

@@ -49,7 +49,13 @@ end
 
 function get_aero_comp(vec_size::Integer)
 
-    ad_backend = ADTypes.AutoForwardDiff()
+    #ad_backend = ADTypes.AutoForwardDiff()
+
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
+
+    
 
     inputs = ComponentVector(
         S = 1.0,
@@ -87,6 +93,10 @@ function get_aero_comp(vec_size::Integer)
     :LD        => "unitless"
     )
 
-    return OpenMDAOCore.DenseADExplicitComp(
-        ad_backend, aero!, outputs, inputs, units_dict=units_dict)
+    #return OpenMDAOCore.DenseADExplicitComp(
+    #ad_backend, aero!, outputs, inputs, units_dict=units_dict)
+
+    comp = OpenMDAOCore.SparseADExplicitComp(
+        ad_backend,aero!,outputs,inputs,units_dict=units_dict)
+    return comp
 end

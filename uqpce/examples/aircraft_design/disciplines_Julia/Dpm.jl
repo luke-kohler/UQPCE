@@ -10,7 +10,10 @@ function Dpm_ad(inputs, params)
 end
 
 function get_Dpm_ad(vector_size::Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
+    #ad_backend = ADTypes.AutoForwardDiff()
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
 
     inputs = ComponentVector(
         R=fill(1.0, vector_size),
@@ -20,7 +23,7 @@ function get_Dpm_ad(vector_size::Integer)
 
     units_dict = Dict(:R=>"km", :DOC=>"USD")
 
-    comp = OpenMDAOCore.DenseADExplicitComp(ad_backend, Dpm_ad, inputs; units_dict=units_dict)
+    comp = OpenMDAOCore.SparseADExplicitComp(ad_backend, Dpm_ad, inputs; units_dict=units_dict)
     
     return comp
 end

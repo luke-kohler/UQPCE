@@ -10,7 +10,10 @@ function BreguetRangeComp(X_ca, params)
 end
 
 function get_breguet_ad_comp(vec_size::Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
+    #ad_backend = ADTypes.AutoForwardDiff()
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
 
     X_ca = ComponentVector(
         V_cruise=1.0,
@@ -28,7 +31,7 @@ function get_breguet_ad_comp(vec_size::Integer)
         :R => "m",
     )
 
-    return OpenMDAOCore.DenseADExplicitComp(
+    return OpenMDAOCore.SparseADExplicitComp(
         ad_backend,
         BreguetRangeComp,
         X_ca;

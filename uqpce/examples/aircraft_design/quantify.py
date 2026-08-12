@@ -297,7 +297,7 @@ def main():
 
     #uncertain_prob.set_val('DOC:mean_resp', mean_response)
     #uncertain_prob.set_val('DOC:var_resp', variance_response)
-
+    uncertain_prob.model.approx_totals(method="fd")
     uncertain_prob.run_driver()
 
     # partial_data = uncertain_prob.check_partials(out_stream=None, method='cs')

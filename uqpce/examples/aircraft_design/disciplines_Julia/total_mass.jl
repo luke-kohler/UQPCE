@@ -10,8 +10,10 @@ function total_mass_ad(inputs, params)
 end
 
 function get_total_mass_ad(vector_size::Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
-
+    #ad_backend = ADTypes.AutoForwardDiff()
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
     inputs = ComponentVector(
         m_empty=fill(1.0, vector_size),
         m_fuel=fill(1.0, vector_size),
@@ -20,7 +22,7 @@ function get_total_mass_ad(vector_size::Integer)
 
     units_dict = Dict(:m_empty=>"kg", :m_fuel=>"kg", :m_payload=>"kg", :m_total=>"kg")
 
-    comp = OpenMDAOCore.DenseADExplicitComp(ad_backend, total_mass_ad, inputs; units_dict=units_dict)
+    comp = OpenMDAOCore.SparseADExplicitComp(ad_backend, total_mass_ad, inputs; units_dict=units_dict)
     
     return comp
 end
