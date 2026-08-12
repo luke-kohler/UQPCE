@@ -14,8 +14,8 @@ def display_results(prob):
     print('\n~~~~\n')
     print('Lift to Drag ratio:', prob.get_val('LD'))
     print('Lift Coefficient:', prob.get_val('CL'))
-    print('Wing Loading [N/m^2]:', prob.get_val('WL'))
-    print('Wing Loading Constr [N/m^2]:', prob.get_val('WL_constraint'))
+    #print('Wing Loading [N/m^2]:', prob.get_val('WL'))
+    #print('Wing Loading Constr [N/m^2]:', prob.get_val('WL_constraint'))
     print('Drag Coefficient:',prob.get_val('CD'))
     print('\n~~~~\n')
     print('SFC:', prob.get_val('SFC'))
@@ -750,10 +750,12 @@ def plot_pareto(uncertain_prob, lambd_50):
 
     #lambd_end = 1.3
 
-    lambd =  np.linspace(lambd_start, lamb_end, 40)
+    lamb_tight = np.linspace(0.0,lambd_start,20)
+    lamb_tight = lamb_tight[:-1]
+    lambd_loose =  np.linspace(lambd_start, lamb_end, 40)
 
     #lambd = (1.05**n) - 1.0
-
+    lambd = np.concatenate((lamb_tight,lambd_loose))
     lambd_diff = np.diff(lambd)
 
     min_delta = np.min(lambd_diff)
@@ -864,13 +866,13 @@ def plot_pareto(uncertain_prob, lambd_50):
 
 
     print("S:")
-    print(S_arr[-1])
+    print(S_arr)
     print("V:")
-    print(V_arr[-1])
+    print(V_arr)
     print("AR")
-    print(AR_arr[-1])
+    print(AR_arr)
     print("SFC_arr")
-    print(SFC_arr[-1])
+    print(SFC_arr)
 
     print("DOC mean")
     print(DOC_mu_list[-1])

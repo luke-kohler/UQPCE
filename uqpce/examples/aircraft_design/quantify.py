@@ -17,23 +17,25 @@ def deterministic_optimization(prob):
     prob.driver.options['disp'] = True
 
     # Declare Design variables
-    prob.model.add_design_var('S', lower=100.0, upper=180.0, ref=124.6)
-    prob.model.add_design_var('AR', lower=7.0, upper=50.0, ref=9.45)
-    prob.model.add_design_var('V_cruise', lower=200, upper=260, ref=1)
+    prob.model.add_design_var('S', lower=100.0, upper=300.0, ref=124.6)
+    prob.model.add_design_var('AR', lower=3.0, upper=100.0, ref=9.45)
+    prob.model.add_design_var('V_cruise', lower=100, upper=300, ref=1)
     prob.model.add_design_var('SFC_tech', lower=-1, upper=1, ref=1)
 
     # Declare Objective Function
     prob.model.add_objective('DOC', ref=1.0e4)
+    prob.model.add_constraint('CL',lower = 0.0, upper=0.53)
+    #prob.model.add_constraint('m_fuel', lower=1000.0, upper=80000.0, ref=16000.0)
     
-    prob.model.add_constraint('m_fuel', lower=1000.0, upper=50000.0, ref=16000.0)
-    prob.model.add_constraint('CL_constraint', lower=0, upper=0.53, ref=0.1)
+    #prob.model.add_constraint('CL_constraint', lower=0, upper=0.53, ref=0.1)
     # determ_prob.model.add_constraint('WL_constraint', lower=-5905, upper=5905, ref=0.1)
+
 
     prob.setup(force_alloc_complex=True)
     initialize(prob)
 
     prob.run_driver()
-    # display_results(determ_prob)
+    display_results(prob)
     # partial_data = prob.check_partials(out_stream=None, method='cs')
     # assert_check_partials(partial_data, atol=1e-12, rtol=1e-12)
 
@@ -110,10 +112,7 @@ class Uncertain_Objective(om.ExplicitComponent):
         self.add_input('DOC:variance', units='USD**2')
         self.add_input('lambda', val = 0, units="unitless")
 
-        #scaling quantites
-        self.add_input('DOC:mean_resp', val=1.0, units='USD')
-        self.add_input('DOC:var_resp', val=1.0, units='USD**2')
-        
+       
         # Outputs
         self.add_output('DOC:mean_plus_lambda_variance', units='unitless')
        
@@ -126,18 +125,13 @@ class Uncertain_Objective(om.ExplicitComponent):
         var = inputs['DOC:variance']
         mu = inputs['DOC:mean']
 
-        var_resp = inputs['DOC:var_resp']
-        mu_resp = inputs['DOC:mean_resp']
-
-        outputs['DOC:mean_plus_lambda_variance'] = (mu/mu_resp) + lambd * (var/var_resp)
+        outputs['DOC:mean_plus_lambda_variance'] = (mu) + lambd * (var)
 
     def compute_partials(self, inputs, partials):
         lambd = inputs['lambda']
-        var_resp = inputs['DOC:var_resp']
-        mu_resp = inputs['DOC:mean_resp']
-
-        partials['DOC:mean_plus_lambda_variance','DOC:variance'] = lambd/var_resp
-        partials['DOC:mean_plus_lambda_variance','DOC:mean'] = 1.0/mu_resp
+        
+        partials['DOC:mean_plus_lambda_variance','DOC:variance'] = lambd
+        partials['DOC:mean_plus_lambda_variance','DOC:mean'] = 1.0
 
 def main():
     #---------------------------------------------------------------------------
@@ -175,7 +169,7 @@ def main():
     uncertain_prob.driver = om.ScipyOptimizeDriver()
     uncertain_prob.driver.options['optimizer'] = 'SLSQP'
     uncertain_prob.driver.options['maxiter'] = 1000
-    uncertain_prob.driver.options['tol'] = 1e-6
+    uncertain_prob.driver.options['tol'] = 1e-8
     uncertain_prob.driver.options['disp'] = True
 
     #---------------------------------------------------------------------------
@@ -215,7 +209,7 @@ def main():
     #---------------------------------------------------------------------------
 
     uncertain_prob.model.add_design_var('S',lower=100.0,upper=180.0,
-                                        ref0=100.0,ref=180.0)
+                                        ref0=100.0,ref=220.0)
 
     uncertain_prob.model.add_design_var('AR',lower=7.0,upper=50.0,
                                         ref0=7.0,ref=50.0)
@@ -241,7 +235,7 @@ def main():
 
     uncertain_prob.model.add_subsystem(
         'variable_risk_objective', Uncertain_Objective(),
-        promotes_inputs=['DOC:mean', 'DOC:variance', 'lambda', 'DOC:mean_resp', 'DOC:var_resp'],
+        promotes_inputs=['DOC:mean', 'DOC:variance', 'lambda'],
         promotes_outputs=['DOC:mean_plus_lambda_variance']
     )
 
@@ -276,14 +270,14 @@ def main():
     #---------------------------------------------------------------------------
     #                      Reset Constraints Based on Response              
     #---------------------------------------------------------------------------
-    #calculated_bound = response["CL"]["ci_upper"]
-    #uncertain_prob.model.set_constraint_options('CL:ci_upper',upper=calculated_bound)
+    calculated_bound = response["CL"]["ci_upper"]
+    uncertain_prob.model.set_constraint_options('CL:ci_upper',upper=calculated_bound)
     
     #---------------------------------------------------------------------------
     #                      Optimize DOC Under Uncertainty              
     #---------------------------------------------------------------------------
 
-    #initialize(uncertain_prob,  params=optimal)
+    initialize(uncertain_prob,  params=optimal)
 
     mean_response = response["DOC"]["mu"]
     variance_response = response["DOC"]["variance"]
@@ -295,16 +289,16 @@ def main():
     #uncertain_prob.set_val('DOC:mean_resp', mean_response)
     #uncertain_prob.set_val('DOC:var_resp', variance_response)
 
-    #uncertain_prob.model.set_val('lambda', lambd_0)
+    uncertain_prob.model.set_val('lambda', lambd_50)
 
-    #uncertain_prob.run_driver()
-    
+    uncertain_prob.model.approx_totals(method='fd')
+    uncertain_prob.run_driver()
 
-    #optimized = get_values(uncertain_prob)
+    optimized = get_values(uncertain_prob)
 
-    #plot_objective(response, optimized)
+    plot_objective(response, optimized)
 
-    plot_pareto(uncertain_prob, lambd_50)
+    #plot_pareto(uncertain_prob, lambd_50)
 
     #---------------------------------------------------------------------------
     #                  Plot Results and Compare Distributions              
@@ -314,7 +308,7 @@ def main():
 
     #plot_objective(response, optimized)
 
-    #plot_coefficients(response, optimized)
+    plot_coefficients(response, optimized)
     
     # plot_constraints(response, optimized)
 

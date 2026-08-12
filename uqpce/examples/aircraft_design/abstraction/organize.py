@@ -96,6 +96,7 @@ class CoupledDisciplines(om.Group):
         line_search.options['print_bound_enforce'] = True
         self.linear_solver = om.DirectSolver()
 
+"""
 class CL_constraint(om.ExplicitComponent):
     
     def initialize(self):
@@ -155,6 +156,7 @@ class WingLoad_constraint(om.ExplicitComponent):
     def compute_partials(self, inputs, partials):
 
         partials['WL_constraint', 'WL'] = 1
+"""
 
 def configure_subsystems(prob, vector_size=1):
     # Propulsion Component
@@ -199,12 +201,12 @@ def configure_subsystems(prob, vector_size=1):
    #     promotes_outputs=['WL_constraint']
    # )
 
-    prob.model.add_subsystem(
-        'LiftCoeff_constraint', 
-        CL_constraint(vec_size=vector_size), 
-        promotes_inputs=['CL'], 
-        promotes_outputs=['CL_constraint']
-    )
+   # prob.model.add_subsystem(
+   #     'LiftCoeff_constraint', 
+   #     CL_constraint(vec_size=vector_size), 
+   #     promotes_inputs=['CL'], 
+   #     promotes_outputs=['CL_constraint']
+   # )
 
     prob.model.add_subsystem(
         'DOC_objective', 
