@@ -4,7 +4,7 @@ using ADTypes: ADTypes
 using ForwardDiff: ForwardDiff
 
 function WeightsComp(X_ca, params)
-    m_wing = (X_ca.kw_base .* X_ca.delta_kw .* X_ca.S^0.758 .* X_ca.AR^0.6 .* X_ca.m_total .^ 0.006 .* (X_ca.V_cruise/ X_ca.V_ref).^(X_ca.p_base .* X_ca.delta_p))
+    m_wing = (X_ca.kw_base .* X_ca.delta_kw .* X_ca.S^0.758 .* X_ca.AR^0.6 .* X_ca.m_total .^ 0.006 .* (X_ca.V / X_ca.V_ref).^(X_ca.p_base .* X_ca.delta_p))
     m_empty = (m_wing .+ X_ca.m_fuse .+ X_ca.fsys_base .* X_ca.m_total .* X_ca.delta_fsys .+ X_ca.m_engine)
 
     return ComponentVector(m_empty = m_empty, m_wing = m_wing)
@@ -16,7 +16,7 @@ function get_weights_ad_comp(vec_size:: Integer)
     X_ca = ComponentVector(
         S = 124.58,
         AR = 34.32^2 / 124.58,
-        V_cruise = 231.5,
+        V = 231.5,
 
         m_total = fill(50000.0, vec_size),
         m_engine = fill(8602.0, vec_size),
@@ -33,8 +33,8 @@ function get_weights_ad_comp(vec_size:: Integer)
     )
 
     units_dict = Dict(
-        :S => "m**2",
-        :V_cruise => "m/s",
+        :S => "m**2"
+        :V => "m/s",
         :m_total => "kg",
         :m_engine => "kg",
         :V_ref => "m/s",
@@ -47,7 +47,6 @@ function get_weights_ad_comp(vec_size:: Integer)
         ad_backend,
         WeightsComp,
         X_ca,
-        params= nothing,
-        units_dict=units_dict,
+        params= nothing
     )
 end

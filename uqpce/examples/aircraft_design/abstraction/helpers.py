@@ -862,6 +862,21 @@ def plot_pareto(uncertain_prob, lambd_50):
 
     plt.show()
 
+
+    print("S:")
+    print(S_arr[-1])
+    print("V:")
+    print(V_arr[-1])
+    print("AR")
+    print(AR_arr[-1])
+    print("SFC_arr")
+    print(SFC_arr[-1])
+
+    print("DOC mean")
+    print(DOC_mu_list[-1])
+    print("DOC var")
+    print(DOC_var_list[-1])
+
 def get_values(prob, copybool = False):
     
     CL_constraint_dist = prob.get_val('CL_constraint:resampled_responses',copy=copybool).ravel()

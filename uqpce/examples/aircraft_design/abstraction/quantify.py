@@ -51,6 +51,9 @@ def deterministic_optimization(prob):
 
     return optimal
 
+def uncertain_optimization(prob):
+    pass
+
 def generate_output_list():
     probabilistic_Dpm_list = ['Dpm:resampled_responses','Dpm:ci_lower',
                               'Dpm:ci_upper','Dpm:mean','Dpm:variance']
@@ -170,12 +173,14 @@ def main():
                                                                 matrix_file)
     
     uncertain_prob = om.Problem()
+
+
     configure_subsystems(uncertain_prob,vector_size=resp_cnt)
 
     uncertain_prob.driver = om.ScipyOptimizeDriver()
     uncertain_prob.driver.options['optimizer'] = 'SLSQP'
     uncertain_prob.driver.options['maxiter'] = 1000
-    uncertain_prob.driver.options['tol'] = 1e-6
+    uncertain_prob.driver.options['tol'] = 2e-6
     uncertain_prob.driver.options['disp'] = True
 
     #---------------------------------------------------------------------------
@@ -245,7 +250,7 @@ def main():
         promotes_outputs=['DOC:mean_plus_lambda_variance']
     )
 
-    uncertain_prob.model.add_objective('DOC:mean_plus_lambda_variance', ref=120e3)    
+    uncertain_prob.model.add_objective('DOC:ci_upper', ref=60e3)    
     
     #---------------------------------------------------------------------------
     #                       Compute Model Response at 
@@ -283,12 +288,12 @@ def main():
     #                      Optimize DOC Under Uncertainty              
     #---------------------------------------------------------------------------
 
-    #initialize(uncertain_prob,  params=optimal)
+    initialize(uncertain_prob,  params=optimal)
 
-    mean_response = response["DOC"]["mu"]
-    variance_response = response["DOC"]["variance"]
+    #mean_response = response["DOC"]["mu"]
+    #variance_response = response["DOC"]["variance"]
 
-    lambd_50 = mean_response/variance_response
+    #lambd_50 = mean_response/variance_response
 
     #vary lambda from 0.2 lambda_50 to 1.8 lambda_50
 
@@ -297,14 +302,14 @@ def main():
 
     #uncertain_prob.model.set_val('lambda', lambd_0)
 
-    #uncertain_prob.run_driver()
+    uncertain_prob.run_driver()
     
 
-    #optimized = get_values(uncertain_prob)
+    optimized = get_values(uncertain_prob)
 
-    #plot_objective(response, optimized)
+    plot_objective(response, optimized)
 
-    plot_pareto(uncertain_prob, lambd_50)
+    #plot_pareto(uncertain_prob, lambd_50)
 
     #---------------------------------------------------------------------------
     #                  Plot Results and Compare Distributions              

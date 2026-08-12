@@ -5,8 +5,8 @@ from uqpce.mdao.uqpcegroup import UQPCEGroup
 from uqpce.mdao import interface
 from openmdao.utils.assert_utils import assert_check_partials
 
-from organize import configure_subsystems, initialize
-from helpers import *
+from abstraction.organize import configure_subsystems, initialize
+from abstraction.helpers import *
 
 def deterministic_optimization(prob):
     # Optimizer

@@ -11,7 +11,7 @@ from uqpce.examples.aircraft_design.disciplines.propulsion import *
 from disciplines.weight import *
 
 from fixed import parameters
-from helpers import initialize_og
+from abstraction.helpers import initialize_og
 from deprecated.optimize import CoupledGroup
 
 

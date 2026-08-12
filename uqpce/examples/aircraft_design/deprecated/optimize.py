@@ -8,7 +8,7 @@ from disciplines.weight import *
 from disciplines.doc import DOC
 from disciplines.dpm import Dpm
 from fixed import parameters
-from helpers import *
+from abstraction.helpers import *
 
 from uqpce.mdao.uqpcegroup import UQPCEGroup
 from uqpce.mdao import interface

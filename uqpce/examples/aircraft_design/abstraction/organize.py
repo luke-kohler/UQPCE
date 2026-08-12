@@ -88,7 +88,7 @@ class CoupledDisciplines(om.Group):
         self.nonlinear_solver.options['maxiter'] = 700
         self.nonlinear_solver.options['atol'] = 1e-8
         self.nonlinear_solver.options['rtol'] = 2e-9
-        newton.options['err_on_non_converge'] = True
+        #newton.options['err_on_non_converge'] = True
 
 
         line_search = newton.linesearch = om.ArmijoGoldsteinLS(bound_enforcement='vector')
