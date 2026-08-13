@@ -86,13 +86,13 @@ class CoupledDisciplines(om.Group):
         newton = self.nonlinear_solver = om.NewtonSolver(solve_subsystems=True)
         self.nonlinear_solver.options['iprint'] = 2
         self.nonlinear_solver.options['maxiter'] = 700
-        self.nonlinear_solver.options['atol'] = 1e-8
-        self.nonlinear_solver.options['rtol'] = 2e-9
+        self.nonlinear_solver.options['atol'] = 1e-10
+        self.nonlinear_solver.options['rtol'] = 1e-12
         #newton.options['err_on_non_converge'] = True
 
 
-        line_search = newton.linesearch = om.ArmijoGoldsteinLS(bound_enforcement='vector')
-        line_search.options['maxiter'] = 100
+        line_search = newton.linesearch = om.BoundsEnforceLS(bound_enforcement='vector')
+        #line_search.options['maxiter'] = 100
         line_search.options['print_bound_enforce'] = True
         self.linear_solver = om.DirectSolver()
 

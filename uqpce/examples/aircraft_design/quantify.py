@@ -13,7 +13,7 @@ def deterministic_optimization(prob):
     prob.driver = om.ScipyOptimizeDriver()
     prob.driver.options['optimizer'] = 'SLSQP'
     prob.driver.options['maxiter'] = 1000
-    prob.driver.options['tol'] = 1e-6
+    prob.driver.options['tol'] = 1e-8
     prob.driver.options['disp'] = True
 
     # Declare Design variables
@@ -296,9 +296,9 @@ def main():
 
     optimized = get_values(uncertain_prob)
 
-    plot_objective(response, optimized)
+    #plot_objective(response, optimized)
 
-    #plot_pareto(uncertain_prob, lambd_50)
+    plot_pareto(uncertain_prob, lambd_50)
 
     #---------------------------------------------------------------------------
     #                  Plot Results and Compare Distributions              
@@ -308,7 +308,7 @@ def main():
 
     #plot_objective(response, optimized)
 
-    plot_coefficients(response, optimized)
+    #plot_coefficients(response, optimized)
     
     # plot_constraints(response, optimized)
 
