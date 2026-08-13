@@ -11,23 +11,27 @@ function WeightsComp(X_ca, params)
 end
 
 function get_weights_ad_comp(vec_size:: Integer)
-    ad_backend = ADTypes.AutoForwardDiff()
+    #ad_backend = ADTypes.AutoForwardDiff()
+
+    ad_backend = ADTypes.AutoSparse(
+    ADTypes.AutoForwardDiff()
+    )
 
     X_ca = ComponentVector(
         S = 124.58,
         AR = 34.32^2 / 124.58,
         V = 231.5,
 
-        m_total = fill(50000.0, vec_size),
-        m_engine = fill(8602.0, vec_size),
+        m_total = fill(1.0, vec_size),
+        m_engine = fill(1.0, vec_size),
 
         delta_kw = fill(1.0, vec_size),
         delta_fsys = fill(1.0, vec_size),
         delta_p = fill(1.0, vec_size),
 
-        kw_base = 53.0,
-        fsys_base = 0.19357,
-        p_base = 5.3,
+        kw_base = 1.0,
+        fsys_base = 1.0,
+        p_base = 1.0,
         V_ref = 231.5,
         m_fuse = 14518.0
     )
@@ -43,7 +47,7 @@ function get_weights_ad_comp(vec_size:: Integer)
         :m_wing => "kg",
     )
 
-    return OpenMDAOCore.DenseADExplicitComp(
+    return OpenMDAOCore.SparseADExplicitComp(
         ad_backend,
         WeightsComp,
         X_ca,

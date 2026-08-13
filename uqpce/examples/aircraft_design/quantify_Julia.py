@@ -1,38 +1,278 @@
 import openmdao.api as om
 import os
+import numpy as np
+from omjlcomps import JuliaExplicitComp
+import juliacall; jl = juliacall.newmodule("Julia")
 
 from uqpce.mdao.uqpcegroup import UQPCEGroup
 from uqpce.mdao import interface
-from openmdao.utils.assert_utils import assert_check_partials
 
-from organize import configure_subsystems, initialize
-from helpers import plot_objective, plot_coefficients, get_values, plot_pareto
-from abstraction.organize import configure_subsystems, initialize
-from abstraction.helpers import *
+from organize import initialize
+from helpers import plot_objective, plot_coefficients, get_values
+
+#vvv DELETE WHEN ALL COMPONENTS CONVERTED TO JULIA vvv
+from disciplines.BreguetRange import BreguetRangeComp
+from disciplines.aero import AeroComp
+from disciplines.total_mass_comp import TotalMassComp
+from disciplines.propulsion import PropulsionComp
+from disciplines.weight import EngineWeightComp, WeightsComp
+from disciplines.doc import DOC
+from disciplines.dpm import Dpm
+
+from fixed import parameters
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'propulsion.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'DOC.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'Dpm.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'engine.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'total_mass.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'aero.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'BreguetRangeComp.jl'))
+jl.include(os.path.join(current_dir, 'disciplines_Julia', 'WeightsComp.jl'))
+
+class CoupledDisciplines(om.Group):
+
+    def initialize(self):
+        self.options.declare('vec_size', default=1, types=int)
+
+    def setup(self):
+        n = self.options['vec_size']
+        total_mass_comp = JuliaExplicitComp(jlcomp=jl.get_total_mass_ad(n))
+        aero_comp = JuliaExplicitComp(jlcomp=jl.get_aero_comp(n))
+        breguet_range_comp = JuliaExplicitComp(jlcomp=jl.get_breguet_ad_comp(n))
+        weights_comp = JuliaExplicitComp(jlcomp=jl.get_weights_ad_comp(n))
+
+        # Aerodynamics Component
+        self.add_subsystem(
+            'Aero', aero_comp,
+            promotes_inputs=['S', 'AR', 'V_cruise',
+                             'C_D0_base', 'ks_base', 'e_base', 'S_0',
+                             'delta_CD0', 'delta_ks', 'delta_e',
+                             'm_total'], 
+            promotes_outputs=['CL', 'CD', 'LD', 'WL']
+        )
+
+        # Structural Weight Component
+        self.add_subsystem(
+            'Weight', weights_comp,
+            promotes_inputs=['S', 'AR', 'V_cruise',
+                             'kw_base', 'fsys_base', 'p_base',
+                             'delta_kw', 'delta_fsys', 'delta_p',
+                             'm_total', 'm_engine', 'm_fuse',
+                             'V_ref'],
+            promotes_outputs=['m_wing', 'm_empty']
+        )
+
+        # Total Mass Comp
+        self.add_subsystem(
+            'Mass', total_mass_comp,
+            promotes_inputs=['m_empty', 'm_fuel', 'm_payload'],
+            promotes_outputs=['m_total']
+        )
+
+        # Breguet Range Component
+        self.add_subsystem(
+            'Range', breguet_range_comp,
+            promotes_inputs=['V_cruise',
+                             'm_total', 'LD',
+                             'SFC',
+                             'm_fuel'],
+            promotes_outputs=['R']
+        )
+
+        # Range Residual
+        initial_guess = np.ones(n)*20000 #kg
+        Balance = om.BalanceComp()
+        
+        Balance.add_balance(
+            name='m_fuel',
+            val=initial_guess,
+            units='kg',
+            lower=1000.0,
+            upper=100000.0,
+            lhs_name='R',
+            rhs_name='R_target',
+            rhs_val=parameters['R_target'],
+            eq_units='m',
+            normalize=True,
+            ref0=1000.0,
+            ref=20000.0,
+            # res_ref=1.0,
+        )
+        
+        self.add_subsystem(
+            'Balance', Balance,
+            promotes_inputs=['R', 'R_target'],
+            promotes_outputs=['m_fuel']
+        )
+        
+        # Residual Solver Options
+        newton = self.nonlinear_solver = om.NewtonSolver(solve_subsystems=True)
+        self.nonlinear_solver.options['iprint'] = 2
+        self.nonlinear_solver.options['maxiter'] = 700
+        self.nonlinear_solver.options['atol'] = 1e-8
+        self.nonlinear_solver.options['rtol'] = 1e-8
+        # newton.options['err_on_non_converge'] = True
+
+        line_search = newton.linesearch = om.ArmijoGoldsteinLS(bound_enforcement='vector')
+        line_search.options['maxiter'] = 100
+        line_search.options['print_bound_enforce'] = True
+        self.linear_solver = om.DirectSolver()
+
+class CL_constraint(om.ExplicitComponent):
+    
+    def initialize(self):
+        self.options.declare('vec_size', default=1, types=int)
+
+    def setup(self):
+        n = self.options['vec_size']
+        arange = np.arange(n)
+
+        self.add_input('CL', units="unitless", shape=(n,))
+
+        self.add_input('CL_target', val=0.53)
+
+        self.add_output('CL_constraint', shape=(n,))
+
+        # should be identity matrix
+        self.declare_partials('CL_constraint', 'CL', rows=arange, cols=arange)
+        self.declare_partials('CL_constraint', 'CL_target')
+
+    def compute(self, inputs, outputs):
+
+        CL = inputs['CL']
+        CL_target = inputs['CL_target']
+
+        outputs['CL_constraint'] = CL_target - CL
+
+    def compute_partials(self, inputs, partials):
+
+        partials['CL_constraint', 'CL'] = -1
+        partials['CL_constraint', 'CL_target'] = 1
+
+class WingLoad_constraint(om.ExplicitComponent):
+    
+    def initialize(self):
+        self.options.declare('vec_size', default=1, types=int)
+
+    def setup(self):
+        n = self.options['vec_size']
+        arange = np.arange(n)
+
+        self.add_input('WL', shape=(n,))
+
+        self.add_input('WL_target', val=5905.0)
+
+        self.add_output('WL_constraint', shape=(n,))
+
+        # should be identity matrix
+        self.declare_partials('WL_constraint', 'WL', rows=arange, cols=arange)
+
+    def compute(self, inputs, outputs):
+
+        WL = inputs['WL']
+        WL_target = inputs['WL_target']
+
+        outputs['WL_constraint'] = WL_target - WL
+
+    def compute_partials(self, inputs, partials):
+
+        partials['WL_constraint', 'WL'] = 1
+
+def configure_subsystems(prob, vector_size=1):
+    prop_comp = JuliaExplicitComp(jlcomp=jl.get_prop_ad(vector_size))
+    DOC_comp = JuliaExplicitComp(jlcomp=jl.get_DOC_ad(vector_size))
+    Dpm_comp = JuliaExplicitComp(jlcomp=jl.get_Dpm_ad(vector_size))
+    engine_comp = JuliaExplicitComp(jlcomp=jl.get_engine_ad(vector_size))
+
+    # Propulsion Component
+    prob.model.add_subsystem(
+        'Prop', 
+        prop_comp,
+        promotes_inputs=['V_cruise', 'SFC_tech',
+                         'SFC_ref', 'V_ref',
+                         'eta_base', 'kv_base',
+                         'delta_eta', 'delta_kv'],
+        promotes_outputs=['SFC']
+    )
+
+    # Engine Weight Component
+    prob.model.add_subsystem(
+        'Engine', 
+        engine_comp, 
+        promotes_inputs=['SFC_tech', 
+                         'm_eng_ref', 'alpha_base',
+                         'delta_alpha'],
+        promotes_outputs=['m_engine']
+    )
+
+    prob.model.add_subsystem(
+        'AeroStruct', 
+        CoupledDisciplines(vec_size=vector_size), 
+        promotes_inputs=['V_cruise', 'S', 'AR',
+                         'C_D0_base', 'ks_base', 'e_base', 'S_0',
+                         'kw_base', 'fsys_base', 'p_base',
+                         'V_ref', 'R_target', 'SFC',
+                         'm_fuse', 'm_payload', 'm_engine',
+                         'delta_CD0', 'delta_ks', 'delta_e',
+                         'delta_fsys', 'delta_kw', 'delta_p'], 
+        promotes_outputs=['m_fuel', 'm_empty', 'm_wing',
+                          'm_total', 'LD', 'CL', 'CD', 'WL', 'R']
+    )
+
+   # prob.model.add_subsystem(
+   #     'WingLoad_constraint', 
+   #     WingLoad_constraint(vec_size=vector_size), 
+   #     promotes_inputs=['WL'], 
+   #     promotes_outputs=['WL_constraint']
+   # )
+
+    prob.model.add_subsystem(
+        'LiftCoeff_constraint', 
+        CL_constraint(vec_size=vector_size), 
+        promotes_inputs=['CL'], 
+        promotes_outputs=['CL_constraint']
+    )
+
+    prob.model.add_subsystem(
+        'DOC_objective', 
+        DOC_comp, 
+        promotes_inputs=['V_cruise', 'SFC_tech',
+                         'Cf_base', 'beta_base',
+                         'C_time', 'k_acq', 'C_eng_ref', 
+                         'delta_beta', 'delta_Cf', 
+                         'R', 'm_fuel'], 
+        promotes_outputs=['DOC']
+    )
+
+    prob.model.add_subsystem(
+        'DPM_objective', 
+        Dpm_comp, 
+        promotes_inputs=['DOC', 'R', 'N_pax'], 
+        promotes_outputs=['Dpm']
+    )
 
 def deterministic_optimization(prob):
     # Optimizer
     prob.driver = om.ScipyOptimizeDriver()
     prob.driver.options['optimizer'] = 'SLSQP'
     prob.driver.options['maxiter'] = 1000
-    prob.driver.options['tol'] = 1e-8
+    prob.driver.options['tol'] = 1e-6
     prob.driver.options['disp'] = True
 
     # Declare Design variables
-    prob.model.add_design_var('S', lower=100.0, upper=300.0, ref=124.6)
-    prob.model.add_design_var('AR', lower=3.0, upper=100.0, ref=9.45)
-    prob.model.add_design_var('V_cruise', lower=100, upper=300, ref=1)
+    prob.model.add_design_var('S', lower=100.0, upper=180.0, ref=124.6)
+    prob.model.add_design_var('AR', lower=7.0, upper=50.0, ref=9.45)
+    prob.model.add_design_var('V_cruise', lower=200, upper=260, ref=1)
     prob.model.add_design_var('SFC_tech', lower=-1, upper=1, ref=1)
 
     # Declare Objective Function
     prob.model.add_objective('DOC', ref=1.0e4)
-    prob.model.add_constraint('CL',lower = 0.0, upper=0.53)
-    #prob.model.add_constraint('m_fuel', lower=1000.0, upper=80000.0, ref=16000.0)
     
     # prob.model.add_constraint('m_fuel', lower=1000.0, upper=50000.0, ref=16000.0)
     prob.model.add_constraint('CL', upper=0.6055, ref=0.1)
     # determ_prob.model.add_constraint('WL_constraint', lower=-5905, upper=5905, ref=0.1)
-
 
     prob.setup(force_alloc_complex=True)
     initialize(prob)
@@ -116,7 +356,10 @@ class Uncertain_Objective(om.ExplicitComponent):
         self.add_input('DOC:variance', units='USD**2')
         self.add_input('lambda', val = 0, units="unitless")
 
-       
+        #scaling quantites
+        self.add_input('DOC:mean_resp', val=1.0, units='USD')
+        self.add_input('DOC:var_resp', val=1.0, units='USD**2')
+        
         # Outputs
         self.add_output('DOC:mean_plus_lambda_variance', units='unitless')
        
@@ -128,15 +371,23 @@ class Uncertain_Objective(om.ExplicitComponent):
         var = inputs['DOC:variance']
         mu = inputs['DOC:mean']
 
-        outputs['DOC:mean_plus_lambda_variance'] = (mu) + lambd * (var)
+        var_resp = inputs['DOC:var_resp']
+        mu_resp = inputs['DOC:mean_resp']
+
+        outputs['DOC:mean_plus_lambda_variance'] = (mu/mu_resp) + lambd * (var/var_resp)
 
     def compute_partials(self, inputs, partials):
         var = inputs['DOC:variance']
         mu = inputs['DOC:mean']
         lambd = inputs['lambda']
-        
-        partials['DOC:mean_plus_lambda_variance','DOC:variance'] = lambd
-        partials['DOC:mean_plus_lambda_variance','DOC:mean'] = 1.0
+        var_resp = inputs['DOC:var_resp']
+        mu_resp = inputs['DOC:mean_resp']
+
+        partials['DOC:mean_plus_lambda_variance','DOC:variance'] = lambd/var_resp
+        partials['DOC:mean_plus_lambda_variance','DOC:mean'] = 1.0/mu_resp
+        partials['DOC:mean_plus_lambda_variance','lambda'] = var/var_resp
+        partials['DOC:mean_plus_lambda_variance','DOC:mean_resp'] = -mu/mu_resp**2
+        partials['DOC:mean_plus_lambda_variance','DOC:var_resp'] = -lambd * (var/var_resp**2)
 
 def main():
     #---------------------------------------------------------------------------
@@ -214,7 +465,7 @@ def main():
     #---------------------------------------------------------------------------
 
     uncertain_prob.model.add_design_var('S',lower=100.0,upper=180.0,
-                                        ref0=100.0,ref=220.0)
+                                        ref0=100.0,ref=180.0)
 
     uncertain_prob.model.add_design_var('AR',lower=7.0,upper=50.0,
                                         ref0=7.0,ref=50.0)
@@ -239,7 +490,7 @@ def main():
 
     uncertain_prob.model.add_subsystem(
         'variable_risk_objective', Uncertain_Objective(),
-        promotes_inputs=['DOC:mean', 'DOC:variance', 'lambda'],
+        promotes_inputs=['DOC:mean', 'DOC:variance', 'lambda', 'DOC:mean_resp', 'DOC:var_resp'],
         promotes_outputs=['DOC:mean_plus_lambda_variance']
     )
 
@@ -258,9 +509,7 @@ def main():
     interface.set_vals(uncertain_prob, variables, run_matrix)
 
     uncertain_prob.run_model()
-
-    print("deterministic Des vars")
-    print(optimal)
+    # interface.analysis(uncertain_prob, 'DOC', 'input.yaml', 'run_matrix_generated.dat')
 
     #plot_uqpce_pretty(uncertain_prob)
 
@@ -268,9 +517,9 @@ def main():
 
     #print(response)
 
-    #print("Objective Response from Run Model:")
-    #print(uncertain_prob.get_val('DOC:mean_plus_lambda_variance'))
-    #print("Should eaqual", uncertain_prob.get_val('DOC:mean'))
+    print("Objective Response from Run Model:")
+    print(uncertain_prob.get_val('DOC:mean_plus_lambda_variance'))
+    print("Should eaqual", uncertain_prob.get_val('DOC:mean'))
 
     #---------------------------------------------------------------------------
     #                      Reset Constraints Based on Response              
@@ -293,7 +542,7 @@ def main():
 
     #uncertain_prob.set_val('DOC:mean_resp', mean_response)
     #uncertain_prob.set_val('DOC:var_resp', variance_response)
-    uncertain_prob.model.approx_totals(method="fd")
+
     uncertain_prob.run_driver()
 
     # partial_data = uncertain_prob.check_partials(out_stream=None, method='cs')
