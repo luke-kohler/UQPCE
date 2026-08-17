@@ -27,18 +27,18 @@ def deterministic_optimization(prob):
     # Declare Objective Function
     prob.model.add_objective('DOC', ref=1.0e4)
     #prob.model.add_constraint('CL',lower = 0.0, upper=0.53)
-    prob.model.add_constraint(
-                'WL',
-                lower=6000,
-                upper=6400,
-                ref0=6000,
-                ref=6400
-    )
+    #prob.model.add_constraint(
+    #            'WL',
+    #            lower=6000,
+    #            upper=6400,
+    #            ref0=6000,
+    #            ref=6400
+    #)
    
     #prob.model.add_constraint('m_fuel', lower=1000.0, upper=80000.0, ref=16000.0)
     
     # prob.model.add_constraint('m_fuel', lower=1000.0, upper=50000.0, ref=16000.0)
-    #prob.model.add_constraint('CL', upper=0.63, ref=0.1)
+    prob.model.add_constraint('CL', lower = 0.0, upper=0.61)
     # determ_prob.model.add_constraint('WL_constraint', lower=-5905, upper=5905, ref=0.1)
 
 
@@ -96,11 +96,11 @@ def generate_output_list():
                                     'CL_constraint:mean',
                                     'CL_constraint:variance']
     
-    # probabilistic_WL_constr_list = ['WL_constraint:resampled_responses',
-    #                                 'WL_constraint:ci_lower',
-    #                                 'WL_constraint:ci_upper',
-    #                                 'WL_constraint:mean',
-    #                                 'WL_constraint:variance']
+    probabilistic_WL_constr_list = ['WL:resampled_responses',
+                                     'WL:ci_lower',
+                                     'WL:ci_upper',
+                                     'WL:mean',
+                                     'WL:variance']
 
     probabilistic_output_list =  (
         probabilistic_Dpm_list +
@@ -111,7 +111,8 @@ def generate_output_list():
         probabilistic_CL_list +
         probabilistic_CD_list +
         probabilistic_SFC_list +
-        probabilistic_CL_constr_list
+        probabilistic_CL_constr_list +
+        probabilistic_WL_constr_list
     )
     
     return probabilistic_output_list
@@ -210,13 +211,13 @@ def main():
                    aleatory_cnt=aleatory_cnt,
                    uncert_list=['DOC','Dpm', 'm_fuel','m_empty',
                                 'm_engine','m_total','CL',
-                                'CD','SFC','CL_constraint'],
+                                'CD','SFC','CL_constraint','WL'],
                    tanh_omega=1e-3,
-                   sample_ref0=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                   sample_ref=[5.0e4, 1e-2, 1e3, 1e3, 1e3, 1e3, 0.1, 0.1, 1e-4, 0.1]),
+                   sample_ref0=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6000],
+                   sample_ref=[5.0e4, 1e-2, 1e3, 1e3, 1e3, 1e3, 0.1, 0.1, 1e-4, 0.1,7000]),
         
         promotes_inputs=['DOC','Dpm', 'm_fuel','m_empty','m_engine',
-                         'm_total','CL','CD','SFC','CL_constraint'],
+                         'm_total','CL','CD','SFC','CL_constraint','WL'],
 
         promotes_outputs=probabilistic_output_list
     )
@@ -241,7 +242,8 @@ def main():
     #                             Add Constraints
     #---------------------------------------------------------------------------
 
-    uncertain_prob.model.add_constraint('CL:ci_upper',upper=0.65, ref0=0, ref=0.56)
+    uncertain_prob.model.add_constraint('CL:ci_upper',upper=0.61, ref0=0.0, ref=1.0)
+    #uncertain_prob.model.add_constraint('WL:ci_lower',lower=6000, ref0=6000, ref=7500)
     # uncertain_prob.model.add_constraint('DOC:ci_upper', upper=69500)
 
     #---------------------------------------------------------------------------
@@ -256,14 +258,14 @@ def main():
     )
 
     #uncertain_prob.model.add_objective('DOC:mean_plus_lambda_variance', ref=120e3)
-    uncertain_prob.model.add_objective('DOC:ci_upper', ref=6e4)    
+    uncertain_prob.model.add_objective('DOC:mean_plus_lambda_variance', ref=12e4)    
     
     #---------------------------------------------------------------------------
     #                       Compute Model Response at 
     #                         Deterministic Optima      
     #---------------------------------------------------------------------------
 
-    uncertain_prob.setup(force_alloc_complex=True)
+    uncertain_prob.setup()
 
     initialize(uncertain_prob, params=optimal)
     
@@ -289,6 +291,9 @@ def main():
     #---------------------------------------------------------------------------
     calculated_bound = response["CL"]["ci_upper"]
     uncertain_prob.model.set_constraint_options('CL:ci_upper',upper=calculated_bound)
+
+    #calculated_bound = response["WL"]["ci_lower"]
+    #uncertain_prob.model.set_constraint_options('WL:ci_lower',lower=calculated_bound)
     
     #---------------------------------------------------------------------------
     #                      Optimize DOC Under Uncertainty              
@@ -306,7 +311,7 @@ def main():
     #uncertain_prob.set_val('DOC:mean_resp', mean_response)
     #uncertain_prob.set_val('DOC:var_resp', variance_response)
     #uncertain_prob.model.approx_totals(method="fd")
-    #uncertain_prob.run_driver()
+    uncertain_prob.run_driver()
 
     # partial_data = uncertain_prob.check_partials(out_stream=None, method='cs')
     # assert_check_partials(partial_data, atol=1e-12, rtol=1e-12)
@@ -331,9 +336,9 @@ def main():
 
     # print(uncertain_prob.get_val('R'))
 
-    #plot_objective(response, optimized)
+    plot_objective(response, optimized)
 
-    #plot_coefficients(response, optimized)
+    plot_coefficients(response, optimized)
     
     # plot_constraints(response, optimized)
 
@@ -343,7 +348,7 @@ def main():
     #print("Response\n")
     #print(response["Design"])
     #print("Uncertain\n")
-    #print(optimized["Design"])
+    print(optimized["Design"])
 
 
 if __name__ == "__main__":

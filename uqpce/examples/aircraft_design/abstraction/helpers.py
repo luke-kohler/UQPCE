@@ -353,6 +353,19 @@ def plot_coefficients(dict_response, dict_optimized):
     CL_variance = dict_response["CL"]["variance"]
     #CL_var = dict_response["CL"]["var"]
 
+    WL_dist = dict_response["WL"]["dist"]
+    WL_ci_lower = dict_response["WL"]["ci_lower"]
+    WL_ci_upper = dict_response["WL"]["ci_upper"]
+    WL_mu = dict_response["WL"]["mu"]
+    WL_variance = dict_response["WL"]["variance"]
+    #CL_var = dict_response["CL"]["var"]
+
+    WL_opt_dist = dict_optimized["WL"]["dist"]
+    WL_opt_ci_lower = dict_optimized["WL"]["ci_lower"]
+    WL_opt_ci_upper = dict_optimized["WL"]["ci_upper"]
+    WL_opt_mu = dict_optimized["WL"]["mu"]
+    WL_opt_variance = dict_optimized["WL"]["variance"]
+
     CL_opt_dist = dict_optimized["CL"]["dist"]
     CL_opt_ci_lower = dict_optimized["CL"]["ci_lower"]
     CL_opt_ci_upper = dict_optimized["CL"]["ci_upper"]
@@ -426,6 +439,32 @@ def plot_coefficients(dict_response, dict_optimized):
     ax[1].set_ylabel(r"Probability Density",labelpad=10,fontsize=18)
     ax[1].set_title(rf"$C_D$ Distribution: $\sigma^2_{{\mathrm{{resp}}}} = {CD_variance:.4e}, \ \ \sigma^2_{{\mathrm{{opt}}}} = {CD_opt_variance:.4e}$",fontsize=24)
     ax[1].legend()
+
+    fig, axes = plt.subplots(figsize=(14, 14))
+
+
+    axes.hist(WL_dist,bins=70,density=True,color='red',alpha=0.5,label="response at deterministic optima")
+
+    axes.axvline(WL_ci_lower, color='red', linewidth=2,linestyle=':', 
+                label=rf"CI lower $\approx$ {WL_ci_lower:.4f}")
+    axes.axvline(WL_ci_upper, color='red', linewidth=2,linestyle=':', 
+                label=rf"CI upper $\approx$ {WL_ci_upper:.4f}")
+    axes.axvline(WL_mu, color='red', linewidth=2,linestyle='-', 
+                label=rf"$\mu_{{\mathrm{{resp}}}} \ \approx$ {WL_mu:.4f}")
+
+    axes.hist(WL_opt_dist,bins=70,density=True,color='blue',alpha=0.5,label=r"optimized probability distribution $(\lambda \approx 0.02)$")
+
+    axes.axvline(WL_opt_ci_lower, color='blue', linewidth=2,linestyle=':', 
+                label=rf"CI lower $\approx$ {WL_opt_ci_lower:.4f}")
+    axes.axvline(WL_opt_ci_upper, color='blue', linewidth=2,linestyle=':', 
+                label=rf"CI upper $\approx$ {WL_opt_ci_upper:.4f}")
+    axes.axvline(WL_opt_mu, color='blue', linewidth=2,linestyle='-', 
+                label=rf"$\mu_{{\mathrm{{opt}}}} \ \approx$ {WL_opt_mu:.4f}")
+
+    axes.set_xlabel(r"$W_L$",labelpad=15,fontsize=18)
+    axes.set_ylabel(r"Probability Density",labelpad=10,fontsize=18)
+    axes.set_title(rf"$W_L$ Distribution: $\sigma^2_{{\mathrm{{resp}}}} = {WL_variance:.4e}, \ \ \sigma^2_{{\mathrm{{opt}}}} = {WL_opt_variance:.4e}$",fontsize=24)
+    axes.legend()
 
     plt.show()
 
@@ -730,7 +769,7 @@ def plot_sfc(dict_response, dict_optimized):
 
 def plot_pareto(uncertain_prob, lambd_50):
 
-    lambd_start = 0.2*lambd_50
+    lambd_start = 0.0*lambd_50
     lamb_end = 1.8*lambd_50
 
     plt.rcParams.update({
@@ -891,43 +930,6 @@ def plot_pareto(uncertain_prob, lambd_50):
 
 def get_values(prob, copybool = False):
     
-    CL_constraint_dist = prob.get_val('CL_constraint:resampled_responses',copy=copybool).ravel()
-    CL_constraint_ci_lower = prob.get_val('CL_constraint:ci_lower',copy=copybool).item()
-    CL_constraint_ci_upper = prob.get_val('CL_constraint:ci_upper',copy=copybool).item()
-    CL_constraint_mu = prob.get_val('CL_constraint:mean',copy=copybool).item()
-    CL_constraint_variance = prob.get_val('CL_constraint:variance',copy=copybool).item()
-    #CL_constraint_var = CL_constraint_variance - CL_constraint_mu
-
-    CL_constraint = {
-        "dist" : CL_constraint_dist,
-        "ci_lower" : CL_constraint_ci_lower,
-        "ci_upper" : CL_constraint_ci_upper,
-        "mu" : CL_constraint_mu,
-        "variance" : CL_constraint_variance,
-        #"var" : CL_constraint_var
-    }
-
-    """
-    WL_constraint_dist = prob.get_val('WL_constraint:resampled_responses',copy=copybool).ravel()
-    WL_constraint_ci_lower = prob.get_val('WL_constraint:ci_lower',copy=copybool).item()
-    WL_constraint_ci_upper = prob.get_val('WL_constraint:ci_upper',copy=copybool).item()
-    WL_constraint_mu = prob.get_val('WL_constraint:mean',copy=copybool).item()
-    WL_constraint_variance = prob.get_val('WL_constraint:variance',copy=copybool).item()
-    #WL_constraint_var = WL_constraint_variance - WL_constraint_mu
-
-    WL_constraint = {
-        "dist": WL_constraint_dist,
-        "ci_lower": WL_constraint_ci_lower,
-        "ci_upper": WL_constraint_ci_upper,
-        "mu": WL_constraint_mu,
-        "variance": WL_constraint_variance,
-        "var": WL_constraint_var,
-    }
-    """
-  
-
-    
-
     DOC_dist = prob.get_val('DOC:resampled_responses',copy=copybool).ravel()
     DOC_ci_lower = prob.get_val('DOC:ci_lower',copy=copybool).item()
     DOC_ci_upper = prob.get_val('DOC:ci_upper',copy=copybool).item()
@@ -1056,6 +1058,24 @@ def get_values(prob, copybool = False):
         #"var": CL_var,
     }
 
+    WL_dist = prob.get_val('WL:resampled_responses',copy=copybool).ravel()
+    WL_ci_lower = prob.get_val('WL:ci_lower',copy=copybool).item()
+    WL_ci_upper = prob.get_val('WL:ci_upper',copy=copybool).item()
+    WL_mu = prob.get_val('WL:mean',copy=copybool).item()
+    WL_variance = prob.get_val('WL:variance',copy=copybool).item()
+    #WL_var = WL_variance - WL_mu
+    
+    WL = {
+            "dist": WL_dist,
+            "ci_lower": WL_ci_lower,
+            "ci_upper": WL_ci_upper,
+            "mu": WL_mu,
+            "variance": WL_variance,
+            #"var": WL_var,
+    }
+
+  
+
     CD_dist = prob.get_val('CD:resampled_responses',copy=copybool).ravel()
     CD_ci_lower = prob.get_val('CD:ci_lower',copy=copybool).item()
     CD_ci_upper = prob.get_val('CD:ci_upper',copy=copybool).item()
@@ -1085,7 +1105,6 @@ def get_values(prob, copybool = False):
     }
 
     plotting_vals = {
-        "CL_constraint" : CL_constraint,
         "Design" : Design,
         "DOC" : DOC,
         "Dpm" : Dpm,
@@ -1095,7 +1114,8 @@ def get_values(prob, copybool = False):
         "m_empty" : m_empty,
         "SFC" : SFC,
         "CL" : CL,
-        "CD" : CD
+        "CD" : CD,
+        "WL" : WL
     }
 
     return plotting_vals
