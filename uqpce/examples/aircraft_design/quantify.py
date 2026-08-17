@@ -5,8 +5,8 @@ from uqpce.mdao.uqpcegroup import UQPCEGroup
 from uqpce.mdao import interface
 from openmdao.utils.assert_utils import assert_check_partials
 
-from organize import configure_subsystems, initialize
-from helpers import plot_objective, plot_coefficients, get_values, plot_pareto
+from abstraction.organize import configure_subsystems, initialize
+from abstraction.helpers import plot_objective, plot_coefficients, get_values, plot_pareto, plot_uqpce_pretty
 from abstraction.organize import configure_subsystems, initialize
 from abstraction.helpers import *
 
@@ -26,15 +26,23 @@ def deterministic_optimization(prob):
 
     # Declare Objective Function
     prob.model.add_objective('DOC', ref=1.0e4)
-    prob.model.add_constraint('CL',lower = 0.0, upper=0.53)
+    #prob.model.add_constraint('CL',lower = 0.0, upper=0.53)
+    prob.model.add_constraint(
+                'WL',
+                lower=6000,
+                upper=6400,
+                ref0=6000,
+                ref=6400
+    )
+   
     #prob.model.add_constraint('m_fuel', lower=1000.0, upper=80000.0, ref=16000.0)
     
     # prob.model.add_constraint('m_fuel', lower=1000.0, upper=50000.0, ref=16000.0)
-    prob.model.add_constraint('CL', upper=0.6055, ref=0.1)
+    #prob.model.add_constraint('CL', upper=0.63, ref=0.1)
     # determ_prob.model.add_constraint('WL_constraint', lower=-5905, upper=5905, ref=0.1)
 
 
-    prob.setup(force_alloc_complex=True)
+    prob.setup()
     initialize(prob)
 
     prob.run_driver()
@@ -121,7 +129,7 @@ class Uncertain_Objective(om.ExplicitComponent):
         self.add_output('DOC:mean_plus_lambda_variance', units='unitless')
        
     def setup_partials(self):
-        self.declare_partials('DOC:mean_plus_lambda_variance', ['DOC:mean', 'DOC:variance', 'lambda', 'DOC:mean_resp', 'DOC:var_resp'])
+        self.declare_partials('DOC:mean_plus_lambda_variance', ['DOC:mean', 'DOC:variance', 'lambda'])
 
     def compute(self, inputs, outputs):
         lambd = inputs['lambda']
@@ -148,11 +156,15 @@ def main():
     configure_subsystems(determ_prob)
 
     optimal = deterministic_optimization(determ_prob)
+
+    print(optimal)
+
+    display_results(determ_prob)
+    
     
     #---------------------------------------------------------------------------
     #                               Input Files
     #---------------------------------------------------------------------------
-
     script_dir = os.path.dirname(os.path.abspath(__file__))
     relative_yaml = 'input.yaml'
     relative_matrix = 'run_matrix_generated.dat'
@@ -243,8 +255,8 @@ def main():
         promotes_outputs=['DOC:mean_plus_lambda_variance']
     )
 
-    uncertain_prob.model.add_objective('DOC:mean_plus_lambda_variance', ref=120e3)
-    # uncertain_prob.model.add_objective('DOC:mean', ref=6e4)    
+    #uncertain_prob.model.add_objective('DOC:mean_plus_lambda_variance', ref=120e3)
+    uncertain_prob.model.add_objective('DOC:ci_upper', ref=6e4)    
     
     #---------------------------------------------------------------------------
     #                       Compute Model Response at 
@@ -275,8 +287,8 @@ def main():
     #---------------------------------------------------------------------------
     #                      Reset Constraints Based on Response              
     #---------------------------------------------------------------------------
-    # calculated_bound = response["CL"]["ci_upper"]
-    # uncertain_prob.model.set_constraint_options('CL:ci_upper',upper=calculated_bound)
+    calculated_bound = response["CL"]["ci_upper"]
+    uncertain_prob.model.set_constraint_options('CL:ci_upper',upper=calculated_bound)
     
     #---------------------------------------------------------------------------
     #                      Optimize DOC Under Uncertainty              
@@ -293,8 +305,8 @@ def main():
 
     #uncertain_prob.set_val('DOC:mean_resp', mean_response)
     #uncertain_prob.set_val('DOC:var_resp', variance_response)
-    uncertain_prob.model.approx_totals(method="fd")
-    uncertain_prob.run_driver()
+    #uncertain_prob.model.approx_totals(method="fd")
+    #uncertain_prob.run_driver()
 
     # partial_data = uncertain_prob.check_partials(out_stream=None, method='cs')
     # assert_check_partials(partial_data, atol=1e-12, rtol=1e-12)
@@ -310,8 +322,8 @@ def main():
     print(optimized["DOC"]["mu"])
     print(optimized["DOC"]["variance"])
 
-    # plot_pareto(uncertain_prob, lambd_50)
-    # print(optimal)
+    plot_pareto(uncertain_prob, lambd_50)
+    #print(optimal)
 
     #---------------------------------------------------------------------------
     #                  Plot Results and Compare Distributions              
@@ -319,9 +331,9 @@ def main():
 
     # print(uncertain_prob.get_val('R'))
 
-    plot_objective(response, optimized)
+    #plot_objective(response, optimized)
 
-    plot_coefficients(response, optimized)
+    #plot_coefficients(response, optimized)
     
     # plot_constraints(response, optimized)
 
@@ -332,6 +344,7 @@ def main():
     #print(response["Design"])
     #print("Uncertain\n")
     #print(optimized["Design"])
+
 
 if __name__ == "__main__":
     main()

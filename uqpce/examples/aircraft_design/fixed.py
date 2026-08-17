@@ -22,7 +22,7 @@ parameters = {
     "SFC_tech": 0.0,                # -
 
     "Cf_base": 0.74,                # USD/kg
-    "C_time": 0.472,                # USD/s; =1700 USD/hr
+    "C_time": 0.481,                # USD/s; =1700 USD/hr
     "k_acq": 0.00142,               # -
     "C_eng_ref": 2.2e7,             # USD
 
@@ -32,12 +32,12 @@ parameters = {
 }
 
 tuning = {  
-    "p_base": 7.5443750000000005,       # -
-    "eta_base": 0.4393500000352975,     # -
-    "kv_base": 601.05144999999999,      # -
-    "alpha_base": 0.345000107456725,    # -
-    "beta_base": 0.55,                  # -
-    "ks_base": 0.0002910700075464138,   # 1/m**2
+    "p_base": 1.567,       # -
+    "eta_base": 0.351,     # -
+    "kv_base": 392.01,      # -
+    "alpha_base": 0.413,    # -
+    "beta_base": 0.638,                  # -
+    "ks_base": 0.00071,   # 1/m**2
     "fsys_base": 0.19357,               # -
-    "kw_base": 53.0,                    # -?
+    "kw_base": 54.61,                    # -?
 }

@@ -66,7 +66,7 @@ class CoupledDisciplines(om.Group):
             val=initial_guess,
             units='kg',
             lower=1000.0,
-            upper=100000.0,
+            upper=70000.0,
             lhs_name='R',
             rhs_name='R_target',
             rhs_val=parameters['R_target'],
@@ -86,12 +86,12 @@ class CoupledDisciplines(om.Group):
         # Residual Solver Options
         newton = self.nonlinear_solver = om.NewtonSolver(solve_subsystems=True)
         self.nonlinear_solver.options['iprint'] = 2
-        self.nonlinear_solver.options['maxiter'] = 700
-        self.nonlinear_solver.options['atol'] = 1e-8
+        self.nonlinear_solver.options['maxiter'] = 200
+        self.nonlinear_solver.options['atol'] = 1e-6
         self.nonlinear_solver.options['rtol'] = 1e-8
         # newton.options['err_on_non_converge'] = True
 
-        line_search = newton.linesearch = om.BoundsEnforceLS(bound_enforcement='vector')
+        line_search = newton.linesearch = om.ArmijoGoldsteinLS(bound_enforcement='vector')
         #line_search.options['maxiter'] = 100
         line_search.options['print_bound_enforce'] = True
         self.linear_solver = om.DirectSolver()
@@ -227,10 +227,10 @@ def configure_subsystems(prob, vector_size=1):
     )
 
 def initialize(prob, params=parameters):
-    prob.set_val('V_cruise', params['V_cruise'])
-    prob.set_val('S', params['S'])
-    prob.set_val('AR', params['AR'])
-    prob.set_val('SFC_tech', params['SFC_tech'])
+    prob.set_val('V_cruise', 231.0)
+    prob.set_val('S', 133.0)
+    prob.set_val('AR', 11.176)
+    prob.set_val('SFC_tech', 0.24)
 
     # Tuning Parameters
     prob.set_val('e_base', parameters['e_oswald_base'])
